@@ -22,9 +22,9 @@ library(edgeR)
 
 
 project_dir <- '../output_data/'
-data_file <- paste0(project_dir, 'filtered_RNA.csv')
-sample_file <- paste0( project_dir, 'filtered_samples_RNA.csv') 
-output_file <- paste0(project_dir, 'filtered_DE_RNA.csv')
+data_file <- paste0(project_dir, 'pancan_filtered_RNA.csv')
+sample_file <- paste0( project_dir, 'pancan_filtered_samples_RNA.csv') 
+output_file <- paste0(project_dir, 'pancan_filtered_DE_RNA.csv')
 paired=FALSE
 
 
@@ -99,9 +99,9 @@ write.csv(all_rna_df, file = output_file)
 
 
 project_dir <- '../output_data/'
-data_file <- paste0(project_dir, 'filtered_CpG.csv')
-sample_file <- paste0( project_dir, 'filtered_samples_CpG.csv') 
-output_file <- paste0(project_dir, 'filtered_DMC_CpG.csv')
+data_file <- paste0(project_dir, 'pancan_filtered_CpG.csv')
+sample_file <- paste0( project_dir, 'pancan_filtered_samples_CpG.csv') 
+output_file <- paste0(project_dir, 'pancan_filtered_DMC_CpG.csv')
 paired=FALSE
 
 cat(paste("Differential Methylation analysis for: \n", data_file, "\n"))
@@ -112,6 +112,7 @@ sample_df <- read.csv(sample_file)
 
 #### Change rownames ####
 rowNames <- unlist(cpg_raw['id'])
+sample_df <- sample_df[sample_df$Sample %in% names(cpg_raw), ]
 cpg_data <- cpg_raw[, sample_df$Sample]
 rownames(cpg_data) <- rowNames
 rownames(cpg_raw) <- rowNames
@@ -127,7 +128,7 @@ cpg_data_m <- as.matrix(cpg_data)
 cond_id <- as.factor(sample_df$CondID)
 cases <- as.factor(sample_df$SafeCases)
 disease <- as.factor(sample_df$Disease)
-design = model.matrix(~cond_id)  # Can't do paired in DNA methylation
+design = model.matrix(~disease + cond_id)  # Can't do paired in DNA methylation
 
 # Before running limma we want to do two steps, (following the steps of Miss Methyl)
 # 1) convert to M values 
@@ -136,7 +137,7 @@ design = model.matrix(~cond_id)  # Can't do paired in DNA methylation
 # https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-11-587
 # https://bioconductor.org/packages/release/bioc/vignettes/missMethyl/inst/doc/missMethyl.html 
 # Add a very small amount so that if we have 0's we don't get an issue with NAs and log2
-cpg_data_M_filtered <- log2((cpg_data_filtered) /(1-cpg_data_filtered))
+cpg_data_M_filtered <- log2((cpg_data_m) /(1-cpg_data_m))
 # Normalise M values using https://github.com/regRCPqn/regRCPqn, https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0229763
 # Install: https://github.com/regRCPqn/regRCPqn
 coef_id <- length(colnames(design))
@@ -145,7 +146,7 @@ fit2 <- eBayes(fit, robust=TRUE)
 
 # Don't sort it otherwise we won't be able to match the data
 fit2_adj <- as.data.frame(topTable(fit2, coef=coef_id, adjust="fdr", sort.by="none", number=1000000))
-all_cpg_df <- cpg_raw[rownames(fit2_adj), c('Locus')]
+all_cpg_df <- cpg_raw[rownames(fit2_adj), c('id')]
 
 # Add in the statistics from the CpG analysis
 all_cpg_df$beta_logFC_meth <- fit2_adj$logFC
@@ -154,9 +155,8 @@ all_cpg_df$beta_pvalue_meth <- fit2_adj$P.Value
 all_cpg_df$beta_padj_meth <- fit2_adj$adj.P.Val
 all_cpg_df$beta_B_meth <- fit2_adj$B
 all_cpg_df$beta_mean_cpg <- fit2_adj$AveExpr
-all_cpg_df$beta_var_cpg <- matrixStats::rowVars(as.matrix(cpg_data_M_filtered))
 
-write.csv(fit2_adj, paste0(project_dir, label, "_Beta_DMCLimma.csv"))
+write.csv(fit2_adj, output_file)
 
 
 # Do the ORA
