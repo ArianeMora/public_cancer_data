@@ -95,7 +95,7 @@ logfile.write(f'Std Pearsons correlation\t{np.std(mean_cor)}\n')
 
 
 corr_sorted = corr.sort_values(by=['mean_corr'])
-cutoff = np.mean(corr_sorted.mean_corr) - (1.5*np.std(corr_sorted.mean_corr))
+cutoff = np.mean(corr_sorted.mean_corr) - (1*np.std(corr_sorted.mean_corr))
 corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
 
 u.dp(['Methylation size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])

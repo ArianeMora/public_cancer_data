@@ -12,7 +12,7 @@ OPP = ['#51AE66', '#AE5199', '#4325DA', '#BCDA25']
 
 u = SciUtil()
 
-disease = 'ClearCellRenalCellCarcinoma'
+disease = 'LungAdenocarcinoma'
 
 # Make a log file
 output_dir = f'.'
