@@ -20,7 +20,6 @@ disease_space = 'Lung Squamous Cell Carcinoma'
 sample_df = pd.read_csv(os.path.join(input_folder, f'PDC_study_biospecimen_07172023_114026.tsv'), sep='\t')
 df = pd.read_csv(os.path.join(input_folder, f'CPTAC3_Lung_Squamous_Cell_Carcinoma_Proteome.tmt11.tsv'), sep='\t')
 
-
 # Make a log file
 output_dir = f''
 outlier_threshold = 3.0
@@ -65,7 +64,7 @@ plt.show()
 
 # Check the distribution
 plt.rcParams["figure.figsize"] = (4, 3)
-plt.hist(np.mean(df[cols].values, axis=1), bins=20)
+plt.hist(np.nanmedian(df[cols].values, axis=1), bins=20)
 plt.show()
 
 # Set NaNs for values that are 2SD or greater from the mean of the gene
@@ -133,11 +132,11 @@ cols = [c for c in df.columns if c != 'gene_name' and 'Tumor' in c]
 corr = df[cols].corr()
 
 # Print out the minimum correlation:
-mean_cor = np.nanmean(corr, axis=1)
+mean_cor = np.nanmedian(corr, axis=1)
 corr['mean_corr'] = mean_cor
 corr.sort_values(by=['mean_corr'])
 
-m_corr = np.mean(mean_cor)
+m_corr = np.nanmedian(mean_cor)
 # Plot out the mean correlation values so we can choose a good filter.
 h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
 if save_fig:
@@ -156,7 +155,7 @@ corr_sorted = corr.sort_values(by=['mean_corr'])
 cutoff = np.mean(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
 corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
 
-u.dp(['Protein size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])
+u.dp(['Protein size after correlation filter: ', np.nanmedian(corr_sorted.mean_corr), cutoff, df.shape])
 
 cols_to_omit = [c for c in corr_sorted.index]
 
@@ -183,11 +182,11 @@ cols = [c for c in df.columns if c != 'gene_name' and 'Normal' in c]
 corr = df[cols].corr()
 
 # Print out the minimum correlation:
-mean_cor = np.nanmean(corr, axis=1)
+mean_cor = np.nanmedian(corr, axis=1)
 corr['mean_corr'] = mean_cor
 corr.sort_values(by=['mean_corr'])
 
-m_corr = np.mean(mean_cor)
+m_corr = np.nanmedian(mean_cor)
 # Plot out the mean correlation values so we can choose a good filter.
 h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
 if save_fig:
@@ -203,10 +202,10 @@ logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\
 #       Filter patients on correlation
 # -------------------------------------------
 corr_sorted = corr.sort_values(by=['mean_corr'])
-cutoff = np.mean(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
+cutoff = np.nanmedian(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
 corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
 
-u.dp(['Protein size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])
+u.dp(['Protein size after correlation filter: ', np.nanmedian(corr_sorted.mean_corr), cutoff, df.shape])
 
 cols_to_omit = [c for c in corr_sorted.index]
 
@@ -233,7 +232,7 @@ cols = list(sample_df['Sample'].values)
 vals = df[cols].values.T
 
 # For vis replace Nan with mean - we'll impute later
-vals = np.nan_to_num(vals, np.mean(np.mean(vals)))
+vals = np.nan_to_num(vals, np.nanmedian(np.nanmedian(vals)))
 
 pca = PCA(n_components=2)
 pca_values = pca.fit_transform(vals)

@@ -14,23 +14,25 @@ u = SciUtil()
 
 disease = 'LungAdenocarcinoma'
 
+
 save_fig = True
 plot_fig = True
 
 fig_dir = 'figs/'
 # Make a log file
 output_dir = f'.'
+outlier_threshold = 3.0
 
 logfile = os.path.join(output_dir, f'{disease}_CpG_filterlog.tsv')
 logfile = open(logfile, 'w+')
-cpg_sample_df = pd.read_csv(os.path.join(output_dir, f'{disease}_samples_CpG.csv'))
+sample_df = pd.read_csv(os.path.join(output_dir, f'{disease}_samples_CpG.csv'))
 meth_df = pd.read_csv(os.path.join(output_dir, f'{disease}_DNAMethylation.csv'))
 
 
 # -------------------------------------------
 #       Write the original sizes out
 # -------------------------------------------
-cols = list(cpg_sample_df['Sample'].values)
+cols = list(sample_df['Sample'].values)
 logfile.write(f'Original Samples\t{",".join(cols)}\n')
 logfile.write(f'Original Size\t{meth_df.shape}\n')
 u.dp(['Methylation size: ', meth_df.shape])
@@ -44,7 +46,7 @@ u.dp(['After dropping rows with 50% nulls:', df.shape])
 logfile.write(f'Size after dropping genes with 50% missing values\t{df.shape}\n')
 
 
-cols = list(cpg_sample_df['Sample'].values)
+cols = list(sample_df['Sample'].values)
 
 # --------------------------------------------
 #   Replace with 0.001s for computing M values
@@ -71,51 +73,105 @@ df = df[mean_meth < 0.95]
 u.dp(['Methylation size after 0.95 filter: ', df.shape, 'Mean meth:', mean_meth])
 logfile.write(f'Methylation size after 0.95 filter\t{np.mean(mean_meth)}\n')
 
-# -------------------------------------------
-#       Filter patients on correlation
-# -------------------------------------------
+# ---------------------------------------------
+#       Compute correlation for tumour samples
+# ---------------------------------------------
+cols = [c for c in df.columns if c != 'gene_name' and 'Tumor' in c]
+
 corr = df[cols].corr()
+
 # Print out the minimum correlation:
-mean_cor = np.nanmean(corr, axis=1)
+mean_cor = np.nanmedian(corr, axis=1)
 corr['mean_corr'] = mean_cor
 corr.sort_values(by=['mean_corr'])
 
-m_corr = np.mean(mean_cor)
+m_corr = np.nanmedian(mean_cor)
 # Plot out the mean correlation values so we can choose a good filter.
 h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
-h.plot()
 if save_fig:
     plt.savefig(os.path.join(fig_dir, f'{disease}_CpG_corrHist.svg'))
 if plot_fig:
     plt.show()
 
 u.dp(['Mean corr: ', m_corr, 'std corr', np.std(mean_cor)])
-logfile.write(f'Mean Pearsons correlation\t{m_corr}\n')
-logfile.write(f'Std Pearsons correlation\t{np.std(mean_cor)}\n')
+logfile.write(f'Mean Pearsons correlation for Tumour samples\t{m_corr}\n')
+logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\n')
 
-
+# -------------------------------------------
+#       Filter patients on correlation
+# -------------------------------------------
 corr_sorted = corr.sort_values(by=['mean_corr'])
-cutoff = np.mean(corr_sorted.mean_corr) - (1*np.std(corr_sorted.mean_corr))
+cutoff = np.nanmedian(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
 corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
 
-u.dp(['Methylation size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])
+u.dp(['CpG size after correlation filter: ', np.nanmedian(corr_sorted.mean_corr), cutoff, df.shape])
 
 cols_to_omit = [c for c in corr_sorted.index]
 
-logfile.write(f'Methylation columns to omit\t{",".join(cols_to_omit)}\n')
-u.dp(['Methylation columns to omit: '])
+logfile.write(f'CpG columns to omit\t{",".join(cols_to_omit)}\n')
+u.dp(['CpG columns to omit: '])
 print('\n'.join(cols_to_omit))
 
 cols_to_keep = [c for c in df.columns if c not in cols_to_omit]
 df = df[cols_to_keep]
 
-u.dp(['Methylation shape after dropping columns:', df.shape])
-logfile.write(f'Methylation size after correlation filter\t{df.shape}\n')
+u.dp(['CpG shape after dropping tumour columns:', df.shape])
+logfile.write(f'CpG size after correlation filter\t{df.shape}\n')
 
 # -------------------------------------------
 #    Filter sample df to only include samples passing QC
 # -------------------------------------------
-sample_df = cpg_sample_df[cpg_sample_df['Sample'].isin(cols_to_keep)]
+sample_df = sample_df[sample_df['Sample'].isin(cols_to_keep)]
+
+# ---------------------------------------------
+#       Compute correlation for Normal samples
+# ---------------------------------------------
+cols = [c for c in df.columns if c != 'gene_name' and 'Normal' in c]
+
+corr = df[cols].corr()
+
+# Print out the minimum correlation:
+mean_cor = np.nanmedian(corr, axis=1)
+corr['mean_corr'] = mean_cor
+corr.sort_values(by=['mean_corr'])
+
+m_corr = np.nanmedian(mean_cor)
+# Plot out the mean correlation values so we can choose a good filter.
+h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
+if save_fig:
+    plt.savefig(os.path.join(fig_dir, f'{disease}_Normal_CpG_corrHist.svg'))
+if plot_fig:
+    plt.show()
+
+u.dp(['Mean corr: ', m_corr, 'std corr', np.std(mean_cor)])
+logfile.write(f'Mean Pearsons correlation for Tumour samples\t{m_corr}\n')
+logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\n')
+
+# -------------------------------------------
+#       Filter patients on correlation
+# -------------------------------------------
+corr_sorted = corr.sort_values(by=['mean_corr'])
+cutoff = np.nanmedian(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
+corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
+
+u.dp(['CpG size after normal correlation filter: ', np.nanmedian(corr_sorted.mean_corr), cutoff, df.shape])
+
+cols_to_omit = [c for c in corr_sorted.index]
+
+logfile.write(f'CpG columns to omit\t{",".join(cols_to_omit)}\n')
+u.dp(['CpG columns to omit: '])
+print('\n'.join(cols_to_omit))
+
+cols_to_keep = [c for c in df.columns if c not in cols_to_omit]
+df = df[cols_to_keep]
+
+u.dp(['CpG shape after dropping tumour columns:', df.shape])
+logfile.write(f'CpG size after correlation filter\t{df.shape}\n')
+
+# -------------------------------------------
+#    Filter sample df to only include samples passing QC
+# -------------------------------------------
+sample_df = sample_df[sample_df['Sample'].isin(cols_to_keep)]
 
 # -------------------------------------------
 #    Visualise to check using PCA
@@ -166,6 +222,7 @@ u.dp(['After dropping duplicate samples for a patient',sample_df_dedup.shape])
 logfile.write(f'After dropping duplicates from samples\t{sample_df_dedup.shape}\n')
 logfile.write(f'Duplicate samples that were dropped\t{",".join([c for c in sample_df.Sample if c not in list(sample_df_dedup.Sample)])}\n')
 u.dp(['Cases included in dataset', len(list(set(sample_df_dedup.SafeCases.values)))])
+
 
 logfile.write(f'Cases included in dataset\t{",".join(list(set(sample_df_dedup.SafeCases.values)))}\n')
 

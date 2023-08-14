@@ -13,7 +13,7 @@ OPP = ['#51AE66', '#AE5199', '#4325DA', '#BCDA25']
 u = SciUtil()
 
 disease = 'HeadandNeckSquamousCellCarcinoma'
-
+outlier_threshold = 3.0
 # Make a log file
 output_dir = f'.'
 
@@ -24,14 +24,14 @@ fig_dir = 'figs/'
 
 logfile = os.path.join(output_dir, f'{disease}_RNA_filterlog.tsv')
 logfile = open(logfile, 'w+')
-rna_sample_df = pd.read_csv(os.path.join(output_dir, f'{disease}_samples_RNA.csv'))
+sample_df = pd.read_csv(os.path.join(output_dir, f'{disease}_samples_RNA.csv'))
 df = pd.read_csv(os.path.join(output_dir, f'{disease}_RNA.csv'))
 
 # -------------------------------------------
 #       Write the original sizes out
 # -------------------------------------------
 
-cols = list(rna_sample_df['Sample'].values)
+cols = list(sample_df['Sample'].values)
 logfile.write(f'Original Samples\t{",".join(cols)}\n')
 logfile.write(f'Original Size\t{df.shape}\n')
 u.dp(['RNA size: ', df.shape])
@@ -91,11 +91,36 @@ u.dp(['Mean corr: ', m_corr, 'std corr', np.std(mean_cor)])
 logfile.write(f'Mean Pearsons correlation\t{m_corr}\n')
 logfile.write(f'Std Pearsons correlation\t{np.std(mean_cor)}\n')
 
+
+# ---------------------------------------------
+#       Compute correlation for tumour samples
+# ---------------------------------------------
+cols = [c for c in df.columns if c != 'gene_name' and 'Tumor' in c]
+
+corr = df[cols].corr()
+
+# Print out the minimum correlation:
+mean_cor = np.nanmean(corr, axis=1)
+corr['mean_corr'] = mean_cor
+corr.sort_values(by=['mean_corr'])
+
+m_corr = np.mean(mean_cor)
+# Plot out the mean correlation values so we can choose a good filter.
+h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
+if save_fig:
+    plt.savefig(os.path.join(fig_dir, f'{disease}_Tumor_RNA_corrHist.svg'))
+if plot_fig:
+    plt.show()
+
+u.dp(['Mean corr: ', m_corr, 'std corr', np.std(mean_cor)])
+logfile.write(f'Mean Pearsons correlation for Tumour samples\t{m_corr}\n')
+logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\n')
+
 # -------------------------------------------
 #       Filter patients on correlation
 # -------------------------------------------
 corr_sorted = corr.sort_values(by=['mean_corr'])
-cutoff = np.mean(corr_sorted.mean_corr) - (1.5 * np.std(corr_sorted.mean_corr))
+cutoff = np.mean(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
 corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
 
 u.dp(['RNA size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])
@@ -109,13 +134,63 @@ print('\n'.join(cols_to_omit))
 cols_to_keep = [c for c in df.columns if c not in cols_to_omit]
 df = df[cols_to_keep]
 
-u.dp(['RNA shape after dropping columns:', df.shape])
+u.dp(['RNA shape after dropping tumour columns:', df.shape])
 logfile.write(f'RNA size after correlation filter\t{df.shape}\n')
 
 # -------------------------------------------
 #    Filter sample df to only include samples passing QC
 # -------------------------------------------
-sample_df = rna_sample_df[rna_sample_df['Sample'].isin(cols_to_keep)]
+sample_df = sample_df[sample_df['Sample'].isin(cols_to_keep)]
+
+# ---------------------------------------------
+#       Compute correlation for Normal samples
+# ---------------------------------------------
+cols = [c for c in df.columns if c != 'gene_name' and 'Normal' in c]
+
+corr = df[cols].corr()
+
+# Print out the minimum correlation:
+mean_cor = np.nanmean(corr, axis=1)
+corr['mean_corr'] = mean_cor
+corr.sort_values(by=['mean_corr'])
+
+m_corr = np.mean(mean_cor)
+# Plot out the mean correlation values so we can choose a good filter.
+h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
+if save_fig:
+    plt.savefig(os.path.join(fig_dir, f'{disease}_Normal_RNA_corrHist.svg'))
+if plot_fig:
+    plt.show()
+
+u.dp(['Mean corr: ', m_corr, 'std corr', np.std(mean_cor)])
+logfile.write(f'Mean Pearsons correlation for Tumour samples\t{m_corr}\n')
+logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\n')
+
+# -------------------------------------------
+#       Filter patients on correlation
+# -------------------------------------------
+corr_sorted = corr.sort_values(by=['mean_corr'])
+cutoff = np.mean(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
+corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
+
+u.dp(['RNA size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])
+
+cols_to_omit = [c for c in corr_sorted.index]
+
+logfile.write(f'RNA columns to omit\t{",".join(cols_to_omit)}\n')
+u.dp(['RNA columns to omit: '])
+print('\n'.join(cols_to_omit))
+
+cols_to_keep = [c for c in df.columns if c not in cols_to_omit]
+df = df[cols_to_keep]
+
+u.dp(['RNA shape after dropping tumour columns:', df.shape])
+logfile.write(f'RNA size after correlation filter\t{df.shape}\n')
+
+# -------------------------------------------
+#    Filter sample df to only include samples passing QC
+# -------------------------------------------
+sample_df = sample_df[sample_df['Sample'].isin(cols_to_keep)]
 
 # -------------------------------------------
 #    Visualise to check using PCA
@@ -134,6 +209,8 @@ vis_df['Stage'] = sample_df['TumorStage'].values
 vis_df['Disease'] = sample_df['Disease'].values
 vis_df['CondID'] = sample_df['CondID'].values
 vis_df['Colour'] = ['#C24B3D' if c == 1 else '#3DB4C2' for c in vis_df['CondID'].values]
+vis_df['Site'] = sample_df['site_of_resection_or_biopsy'].values
+
 stage_c_map = {'Stage I': '#3139ba', 'Stage II': '#7169E4', 'Stage III': '#2A9D8F',
                'Stage IV': '#264653'}
 vis_df['StageColour'] = [stage_c_map.get(c) if stage_c_map.get(c) else '#808080' for c in vis_df['Stage'].values]
@@ -143,7 +220,7 @@ sc = Scatterplot(vis_df, x='PC_1', y='PC_2', title=f'Sample Type', xlabel='PC 1'
                  config={'s': 40, 'opacity': 0.6, 'figsize': (3, 3)})
 sc.plot()
 if save_fig:
-    plt.savefig(os.path.join(fig_dir, f'{disease}_CpG_scatterPCASampleType.svg'))
+    plt.savefig(os.path.join(fig_dir, f'{disease}_RNA_scatterPCASampleType.svg'))
 if plot_fig:
     plt.show()
 
@@ -152,7 +229,17 @@ sc = Scatterplot(vis_df, x='PC_1', y='PC_2', title=f'Stage', xlabel='PC 1', ylab
                  config={'s': 40, 'opacity': 0.6, 'figsize': (3, 3)})
 sc.plot()
 if save_fig:
-    plt.savefig(os.path.join(fig_dir, f'{disease}_CpG_scatterPCAStage.svg'))
+    plt.savefig(os.path.join(fig_dir, f'{disease}_RNA_scatterPCAStage.svg'))
+if plot_fig:
+    plt.show()
+
+# Do also the site
+sc = Scatterplot(vis_df, x='PC_1', y='PC_2', title=f'Site', xlabel='PC 1', ylabel='PC 2',
+                 add_legend=True, color_col='Site',
+                 config={'s': 40, 'opacity': 0.6, 'figsize': (3, 3)})
+sc.plot()
+if save_fig:
+    plt.savefig(os.path.join(fig_dir, f'{disease}_RNA_scatterPCAStage.svg'))
 if plot_fig:
     plt.show()
 
@@ -183,7 +270,6 @@ df = pd.read_csv(os.path.join(output_dir, f'{disease}_RNA.csv'))
 df = df[df.isnull().sum(axis=1) < len(df.values[0]) / 2]
 df = df[(df == 0).astype(int).sum(axis=1) < len(df.values[0]) / 2]
 df = df.fillna(0)
-
 # -------------------------------------------
 #       Compute mean RNA
 # -------------------------------------------

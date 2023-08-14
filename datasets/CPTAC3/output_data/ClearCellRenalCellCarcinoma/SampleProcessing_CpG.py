@@ -80,15 +80,15 @@ cols = [c for c in df.columns if c != 'gene_name' and 'Tumor' in c]
 corr = df[cols].corr()
 
 # Print out the minimum correlation:
-mean_cor = np.nanmean(corr, axis=1)
+mean_cor = np.nanmedian(corr, axis=1)
 corr['mean_corr'] = mean_cor
 corr.sort_values(by=['mean_corr'])
 
-m_corr = np.mean(mean_cor)
+m_corr = np.nanmedian(mean_cor)
 # Plot out the mean correlation values so we can choose a good filter.
 h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
 if save_fig:
-    plt.savefig(os.path.join(fig_dir, f'{disease}_Protein_corrHist.svg'))
+    plt.savefig(os.path.join(fig_dir, f'{disease}_CpG_corrHist.svg'))
 if plot_fig:
     plt.show()
 
@@ -100,10 +100,10 @@ logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\
 #       Filter patients on correlation
 # -------------------------------------------
 corr_sorted = corr.sort_values(by=['mean_corr'])
-cutoff = np.mean(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
+cutoff = np.nanmedian(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
 corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
 
-u.dp(['Protein size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])
+u.dp(['CpG size after correlation filter: ', np.nanmedian(corr_sorted.mean_corr), cutoff, df.shape])
 
 cols_to_omit = [c for c in corr_sorted.index]
 
@@ -130,15 +130,15 @@ cols = [c for c in df.columns if c != 'gene_name' and 'Normal' in c]
 corr = df[cols].corr()
 
 # Print out the minimum correlation:
-mean_cor = np.nanmean(corr, axis=1)
+mean_cor = np.nanmedian(corr, axis=1)
 corr['mean_corr'] = mean_cor
 corr.sort_values(by=['mean_corr'])
 
-m_corr = np.mean(mean_cor)
+m_corr = np.nanmedian(mean_cor)
 # Plot out the mean correlation values so we can choose a good filter.
 h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
 if save_fig:
-    plt.savefig(os.path.join(fig_dir, f'{disease}_Protein_corrHist.svg'))
+    plt.savefig(os.path.join(fig_dir, f'{disease}_Normal_CpG_corrHist.svg'))
 if plot_fig:
     plt.show()
 
@@ -150,22 +150,22 @@ logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\
 #       Filter patients on correlation
 # -------------------------------------------
 corr_sorted = corr.sort_values(by=['mean_corr'])
-cutoff = np.mean(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
+cutoff = np.nanmedian(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
 corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
 
-u.dp(['Protein size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])
+u.dp(['CpG size after normal correlation filter: ', np.nanmedian(corr_sorted.mean_corr), cutoff, df.shape])
 
 cols_to_omit = [c for c in corr_sorted.index]
 
-logfile.write(f'Protein columns to omit\t{",".join(cols_to_omit)}\n')
-u.dp(['Protein columns to omit: '])
+logfile.write(f'CpG columns to omit\t{",".join(cols_to_omit)}\n')
+u.dp(['CpG columns to omit: '])
 print('\n'.join(cols_to_omit))
 
 cols_to_keep = [c for c in df.columns if c not in cols_to_omit]
 df = df[cols_to_keep]
 
-u.dp(['Protein shape after dropping tumour columns:', df.shape])
-logfile.write(f'Protein size after correlation filter\t{df.shape}\n')
+u.dp(['CpG shape after dropping tumour columns:', df.shape])
+logfile.write(f'CpG size after correlation filter\t{df.shape}\n')
 
 # -------------------------------------------
 #    Filter sample df to only include samples passing QC
@@ -221,6 +221,7 @@ u.dp(['After dropping duplicate samples for a patient',sample_df_dedup.shape])
 logfile.write(f'After dropping duplicates from samples\t{sample_df_dedup.shape}\n')
 logfile.write(f'Duplicate samples that were dropped\t{",".join([c for c in sample_df.Sample if c not in list(sample_df_dedup.Sample)])}\n')
 u.dp(['Cases included in dataset', len(list(set(sample_df_dedup.SafeCases.values)))])
+
 
 logfile.write(f'Cases included in dataset\t{",".join(list(set(sample_df_dedup.SafeCases.values)))}\n')
 
