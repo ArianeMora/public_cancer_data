@@ -12,14 +12,13 @@ OPP = ['#51AE66', '#AE5199', '#4325DA', '#BCDA25']
 
 u = SciUtil()
 
-disease = 'LungSquamousCellCarcinoma'
+disease = 'UterineCorpusEndometrialCarcinoma'
 
 # https://cptac-data-portal.georgetown.edu/cptac/documents/CDAP_Results_Overview_rev_09152014.pdf
-input_folder = '../../input_data/LungSquamousCellCarcinoma_PDC000234'
-disease_space = 'Lung Squamous Cell Carcinoma'
-sample_df = pd.read_csv(os.path.join(input_folder, f'PDC_study_biospecimen_07172023_114026.tsv'), sep='\t')
-df = pd.read_csv(os.path.join(input_folder, f'CPTAC3_Lung_Squamous_Cell_Carcinoma_Proteome.tmt11.tsv'), sep='\t')
-
+input_folder = '../../input_data/UterineCorpusEndometrialCarcinoma_PDC000125'
+disease_space = 'Uterine Corpus Endometrial Carcinoma'
+sample_df = pd.read_csv(os.path.join(input_folder, f'PDC_study_biospecimen_07172023_115029.tsv'), sep='\t')
+df = pd.read_csv(os.path.join(input_folder, f'CPTAC3_Uterine_Corpus_Endometrial_Carcinoma_Proteome.tmt10.tsv'), sep='\t')
 
 # Make a log file
 output_dir = f''

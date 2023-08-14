@@ -22,7 +22,7 @@ df = pd.read_csv(os.path.join(input_folder, f'CPTAC3_Lung_Adeno_Carcinoma_Proteo
 
 # Make a log file
 output_dir = f''
-
+outlier_threshold = 3.0
 save_fig = True
 plot_fig = True
 
@@ -71,8 +71,8 @@ plt.show()
 median_protein = np.nanmedian(df[cols].values, axis=1)
 std_protein = np.nanstd(df[cols].values, axis=1)
 print(median_protein, std_protein)
-upper_cutoff = median_protein + (3.0 * std_protein)
-lower_cutoff = median_protein - (3.0 * std_protein)
+upper_cutoff = median_protein + (outlier_threshold * std_protein)
+lower_cutoff = median_protein - (outlier_threshold * std_protein)
 for col in cols:
     df[col][df[col] > upper_cutoff] = None
     df[col][df[col] < lower_cutoff] = None
@@ -124,10 +124,10 @@ sample_df = sample_df[sample_df['CondLabel'] != 'NA']
 
 df = df.rename(columns=col_map)
 
-# -------------------------------------------
-#       Compute correlation
-# -------------------------------------------
-cols = [c for c in df.columns if c != 'gene_name']
+# ---------------------------------------------
+#       Compute correlation for tumour samples
+# ---------------------------------------------
+cols = [c for c in df.columns if c != 'gene_name' and 'Tumor' in c]
 
 corr = df[cols].corr()
 
@@ -145,14 +145,14 @@ if plot_fig:
     plt.show()
 
 u.dp(['Mean corr: ', m_corr, 'std corr', np.std(mean_cor)])
-logfile.write(f'Mean Pearsons correlation\t{m_corr}\n')
-logfile.write(f'Std Pearsons correlation\t{np.std(mean_cor)}\n')
+logfile.write(f'Mean Pearsons correlation for Tumour samples\t{m_corr}\n')
+logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\n')
 
 # -------------------------------------------
 #       Filter patients on correlation
 # -------------------------------------------
 corr_sorted = corr.sort_values(by=['mean_corr'])
-cutoff = np.mean(corr_sorted.mean_corr) - (1.5 * np.std(corr_sorted.mean_corr))
+cutoff = np.mean(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
 corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
 
 u.dp(['Protein size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])
@@ -166,7 +166,57 @@ print('\n'.join(cols_to_omit))
 cols_to_keep = [c for c in df.columns if c not in cols_to_omit]
 df = df[cols_to_keep]
 
-u.dp(['Protein shape after dropping columns:', df.shape])
+u.dp(['Protein shape after dropping tumour columns:', df.shape])
+logfile.write(f'Protein size after correlation filter\t{df.shape}\n')
+
+# -------------------------------------------
+#    Filter sample df to only include samples passing QC
+# -------------------------------------------
+sample_df = sample_df[sample_df['Sample'].isin(cols_to_keep)]
+
+# ---------------------------------------------
+#       Compute correlation for Normal samples
+# ---------------------------------------------
+cols = [c for c in df.columns if c != 'gene_name' and 'Normal' in c]
+
+corr = df[cols].corr()
+
+# Print out the minimum correlation:
+mean_cor = np.nanmean(corr, axis=1)
+corr['mean_corr'] = mean_cor
+corr.sort_values(by=['mean_corr'])
+
+m_corr = np.mean(mean_cor)
+# Plot out the mean correlation values so we can choose a good filter.
+h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
+if save_fig:
+    plt.savefig(os.path.join(fig_dir, f'{disease}_Protein_corrHist.svg'))
+if plot_fig:
+    plt.show()
+
+u.dp(['Mean corr: ', m_corr, 'std corr', np.std(mean_cor)])
+logfile.write(f'Mean Pearsons correlation for Tumour samples\t{m_corr}\n')
+logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\n')
+
+# -------------------------------------------
+#       Filter patients on correlation
+# -------------------------------------------
+corr_sorted = corr.sort_values(by=['mean_corr'])
+cutoff = np.mean(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
+corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
+
+u.dp(['Protein size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])
+
+cols_to_omit = [c for c in corr_sorted.index]
+
+logfile.write(f'Protein columns to omit\t{",".join(cols_to_omit)}\n')
+u.dp(['Protein columns to omit: '])
+print('\n'.join(cols_to_omit))
+
+cols_to_keep = [c for c in df.columns if c not in cols_to_omit]
+df = df[cols_to_keep]
+
+u.dp(['Protein shape after dropping tumour columns:', df.shape])
 logfile.write(f'Protein size after correlation filter\t{df.shape}\n')
 
 # -------------------------------------------
