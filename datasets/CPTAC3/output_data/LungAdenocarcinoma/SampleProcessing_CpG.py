@@ -14,14 +14,13 @@ u = SciUtil()
 
 disease = 'LungAdenocarcinoma'
 
-
 save_fig = True
 plot_fig = True
 
 fig_dir = 'figs/'
 # Make a log file
 output_dir = f'.'
-outlier_threshold = 3.0
+outlier_threshold = 2.0
 
 logfile = os.path.join(output_dir, f'{disease}_CpG_filterlog.tsv')
 logfile = open(logfile, 'w+')

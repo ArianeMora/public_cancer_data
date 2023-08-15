@@ -24,14 +24,14 @@ fig_dir = 'figs/'
 
 logfile = os.path.join(output_dir, f'{disease}_RNA_filterlog.tsv')
 logfile = open(logfile, 'w+')
-rna_sample_df = pd.read_csv(os.path.join(output_dir, f'{disease}_samples_RNA.csv'))
+sample_df = pd.read_csv(os.path.join(output_dir, f'{disease}_samples_RNA.csv'))
 df = pd.read_csv(os.path.join(output_dir, f'{disease}_RNA.csv'))
 
 # -------------------------------------------
 #       Write the original sizes out
 # -------------------------------------------
 
-cols = list(rna_sample_df['Sample'].values)
+cols = list(sample_df['Sample'].values)
 logfile.write(f'Original Samples\t{",".join(cols)}\n')
 logfile.write(f'Original Size\t{df.shape}\n')
 u.dp(['RNA size: ', df.shape])
@@ -75,11 +75,11 @@ for c in cols:
 corr = df[cols].corr()
 
 # Print out the minimum correlation:
-mean_cor = np.nanmean(corr, axis=1)
+mean_cor = np.nanmedian(corr, axis=1)
 corr['mean_corr'] = mean_cor
 corr.sort_values(by=['mean_corr'])
 
-m_corr = np.mean(mean_cor)
+m_corr = np.nanmedian(mean_cor)
 # Plot out the mean correlation values so we can choose a good filter.
 h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
 if save_fig:
@@ -91,11 +91,36 @@ u.dp(['Mean corr: ', m_corr, 'std corr', np.std(mean_cor)])
 logfile.write(f'Mean Pearsons correlation\t{m_corr}\n')
 logfile.write(f'Std Pearsons correlation\t{np.std(mean_cor)}\n')
 
+
+# ---------------------------------------------
+#       Compute correlation for tumour samples
+# ---------------------------------------------
+cols = [c for c in df.columns if c != 'gene_name' and 'Tumor' in c]
+
+corr = df[cols].corr()
+
+# Print out the minimum correlation:
+mean_cor = np.nanmedian(corr, axis=1)
+corr['mean_corr'] = mean_cor
+corr.sort_values(by=['mean_corr'])
+
+m_corr = np.nanmedian(mean_cor)
+# Plot out the mean correlation values so we can choose a good filter.
+h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
+if save_fig:
+    plt.savefig(os.path.join(fig_dir, f'{disease}_Tumor_RNA_corrHist.svg'))
+if plot_fig:
+    plt.show()
+
+u.dp(['Mean corr: ', m_corr, 'std corr', np.std(mean_cor)])
+logfile.write(f'Mean Pearsons correlation for Tumour samples\t{m_corr}\n')
+logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\n')
+
 # -------------------------------------------
 #       Filter patients on correlation
 # -------------------------------------------
 corr_sorted = corr.sort_values(by=['mean_corr'])
-cutoff = np.mean(corr_sorted.mean_corr) - (1.5 * np.std(corr_sorted.mean_corr))
+cutoff = np.mean(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
 corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
 
 u.dp(['RNA size after correlation filter: ', np.nanmean(corr_sorted.mean_corr), cutoff, df.shape])
@@ -109,13 +134,63 @@ print('\n'.join(cols_to_omit))
 cols_to_keep = [c for c in df.columns if c not in cols_to_omit]
 df = df[cols_to_keep]
 
-u.dp(['RNA shape after dropping columns:', df.shape])
+u.dp(['RNA shape after dropping tumour columns:', df.shape])
 logfile.write(f'RNA size after correlation filter\t{df.shape}\n')
 
 # -------------------------------------------
 #    Filter sample df to only include samples passing QC
 # -------------------------------------------
-sample_df = rna_sample_df[rna_sample_df['Sample'].isin(cols_to_keep)]
+sample_df = sample_df[sample_df['Sample'].isin(cols_to_keep)]
+
+# ---------------------------------------------
+#       Compute correlation for Normal samples
+# ---------------------------------------------
+cols = [c for c in df.columns if c != 'gene_name' and 'Normal' in c]
+
+corr = df[cols].corr()
+
+# Print out the minimum correlation:
+mean_cor = np.nanmedian(corr, axis=1)
+corr['mean_corr'] = mean_cor
+corr.sort_values(by=['mean_corr'])
+
+m_corr = np.nanmedian(mean_cor)
+# Plot out the mean correlation values so we can choose a good filter.
+h = Histogram(corr, x='mean_corr', title=f'Mean corr. {m_corr}')
+if save_fig:
+    plt.savefig(os.path.join(fig_dir, f'{disease}_Normal_RNA_corrHist.svg'))
+if plot_fig:
+    plt.show()
+
+u.dp(['Mean corr: ', m_corr, 'std corr', np.std(mean_cor)])
+logfile.write(f'Mean Pearsons correlation for Tumour samples\t{m_corr}\n')
+logfile.write(f'Std Pearsons correlation for Tumour samples\t{np.std(mean_cor)}\n')
+
+# -------------------------------------------
+#       Filter patients on correlation
+# -------------------------------------------
+corr_sorted = corr.sort_values(by=['mean_corr'])
+cutoff = np.nanmedian(corr_sorted.mean_corr) - (outlier_threshold * np.std(corr_sorted.mean_corr))
+corr_sorted = corr_sorted[corr_sorted['mean_corr'] < cutoff]
+
+u.dp(['RNA size after correlation filter: ', np.nanmedian(corr_sorted.mean_corr), cutoff, df.shape])
+
+cols_to_omit = [c for c in corr_sorted.index]
+
+logfile.write(f'RNA columns to omit\t{",".join(cols_to_omit)}\n')
+u.dp(['RNA columns to omit: '])
+print('\n'.join(cols_to_omit))
+
+cols_to_keep = [c for c in df.columns if c not in cols_to_omit]
+df = df[cols_to_keep]
+
+u.dp(['RNA shape after dropping tumour columns:', df.shape])
+logfile.write(f'RNA size after correlation filter\t{df.shape}\n')
+
+# -------------------------------------------
+#    Filter sample df to only include samples passing QC
+# -------------------------------------------
+sample_df = sample_df[sample_df['Sample'].isin(cols_to_keep)]
 
 # -------------------------------------------
 #    Visualise to check using PCA
@@ -143,7 +218,7 @@ sc = Scatterplot(vis_df, x='PC_1', y='PC_2', title=f'Sample Type', xlabel='PC 1'
                  config={'s': 40, 'opacity': 0.6, 'figsize': (3, 3)})
 sc.plot()
 if save_fig:
-    plt.savefig(os.path.join(fig_dir, f'{disease}_CpG_scatterPCASampleType.svg'))
+    plt.savefig(os.path.join(fig_dir, f'{disease}_RNA_scatterPCASampleType.svg'))
 if plot_fig:
     plt.show()
 
@@ -152,7 +227,7 @@ sc = Scatterplot(vis_df, x='PC_1', y='PC_2', title=f'Stage', xlabel='PC 1', ylab
                  config={'s': 40, 'opacity': 0.6, 'figsize': (3, 3)})
 sc.plot()
 if save_fig:
-    plt.savefig(os.path.join(fig_dir, f'{disease}_CpG_scatterPCAStage.svg'))
+    plt.savefig(os.path.join(fig_dir, f'{disease}_RNA_scatterPCAStage.svg'))
 if plot_fig:
     plt.show()
 

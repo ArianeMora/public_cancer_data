@@ -23,6 +23,10 @@ df = pd.read_csv(os.path.join(input_folder, f'CPTAC3_Lung_Adeno_Carcinoma_Proteo
 # Make a log file
 output_dir = f''
 outlier_threshold = 3.0
+
+# Make a log file
+output_dir = f''
+outlier_threshold = 3.0
 save_fig = True
 plot_fig = True
 

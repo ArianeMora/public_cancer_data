@@ -14,7 +14,6 @@ u = SciUtil()
 
 disease = 'UterineCorpusEndometrialCarcinoma'
 
-
 save_fig = True
 plot_fig = True
 
