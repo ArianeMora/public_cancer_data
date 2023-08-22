@@ -16,7 +16,7 @@ library(matrixStats)
 library(DMRcate)
 library(DESeq2)
 library(edgeR)
-
+library(data.table)
 
 project_dir <- ''
 cancer <- 'PanCan'
@@ -27,7 +27,10 @@ output_file <- paste0(project_dir, cancer, '_filtered_DMC_CpG.csv')
 cat(paste("Differential Methylation analysis for: \n", data_file, "\n"))
 
 #### Import data ####
-cpg_raw <- read.csv(data_file, header = TRUE, sep = ",")
+cpg_raw <- fread(data_file)
+cpg_raw <- as.data.frame(cpg_raw)
+# read.csv is too slow f
+#read.csv(data_file, header = TRUE, sep = ",")
 sample_df <- read.csv(sample_file)
 
 #### Change rownames ####

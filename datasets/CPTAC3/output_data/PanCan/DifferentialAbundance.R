@@ -29,7 +29,7 @@ library("DreamAI")
 
 project_dir <- ''
 cancer <- 'PanCan'
-sample_file <- paste0( project_dir, cancer, '_Protein_samples.csv') 
+sample_file <- paste0( project_dir, cancer, '_samples_Protein.csv') 
 imputed_file <- paste0(project_dir, cancer, '_Protein.csv')
 
 output_file <- paste0(project_dir, cancer, '_filtered_DA_Protein.csv')
