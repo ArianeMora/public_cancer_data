@@ -38,6 +38,9 @@ logfile = open(logfile, 'w+')
 # Get the summary file and the biospecimen file
 case_df = pd.read_csv(os.path.join(output_dir, f'{disease}_case.csv'))
 sample_df['SafeCases'] = [c.replace('-', '.') for c in sample_df['Case Submitter ID'].values]
+# Only keep Cases which have a C at the start (i.e. standard CPTAC style).
+cases_to_keep = [c for c in sample_df['SafeCases'] if c[0] == 'C']
+sample_df = pd.DataFrame(sample_df[sample_df['SafeCases'].isin(cases_to_keep)])
 sample_df.set_index('SafeCases', inplace=True)
 case_df.set_index('SafeCases', inplace=True)
 sample_df = sample_df.join(case_df, how='left', lsuffix='_protein')
@@ -285,7 +288,10 @@ if plot_fig:
 # Drop duplicates based on the case ID and the condition type of samples
 # -------------------------------------------
 u.dp(['Before dropping duplicate samples for a patient', sample_df.shape])
-sample_df_dedup = sample_df.drop_duplicates(subset=['SafeCases', 'CondID'])
+# Ensure the columns are overlapping
+sample_df_dedup = sample_df[sample_df.Sample.isin(list(df.columns))]
+sample_df_dedup = sample_df_dedup.drop_duplicates(subset=['SafeCases', 'CondID'])
+
 u.dp(['After dropping duplicate samples for a patient', sample_df_dedup.shape])
 logfile.write(f'After dropping duplicates from samples\t{sample_df_dedup.shape}\n')
 logfile.write(
@@ -298,9 +304,13 @@ samples = list(sample_df_dedup['Sample'].values)
 
 # Drop the outliers and shift the 0 to be real numbered so that we can have a proper logFC
 df_min = min(df[samples].min())
-
+done_cols = []
 for col in samples:
-    df[col] = df[col].values + abs(df_min)
+    if col not in done_cols:
+        df[col] = df[col].values + abs(df_min)
+    else:
+        u.warn_p(["Duplicate column:", col])
+    done_cols.append(col)
 
 plt.rcParams["figure.figsize"] = (20, 3)
 
